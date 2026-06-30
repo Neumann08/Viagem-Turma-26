@@ -1,0 +1,134 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
+
+# Configuração da página
+st.set_page_config(page_title="Organizador de Viagens", layout="wide", page_icon="✈️")
+
+# 🔗 INSERIRA AQUI O LINK DA SUA PLANILHA DO GOOGLE
+LINK_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1hqECOshpTMK8rIZLqfose9tJmXZyWg-6EdKrDd76edY/edit?usp=sharing"
+
+# Função para converter o link normal da planilha em um link de download de dados (CSV)
+def obter_link_csv(url):
+    if "edit?usp=sharing" in url:
+        return url.replace("edit?usp=sharing", "gviz/tq?tqx=out:csv")
+    elif "/edit" in url:
+        return url.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
+    return url
+
+# 1. Gerar todos os finais de semana de Agosto a Dezembro de 2026
+@st.cache_data
+def gerar_finais_de_semana():
+    finais_de_semana = []
+    data_inicio = datetime(2026, 8, 1)
+    data_fim = datetime(2026, 12, 31)
+    
+    data_atual = data_inicio
+    while data_atual <= data_fim:
+        if data_atual.weekday() == 5:  # Sábado
+            sabado = data_atual
+            domingo = data_atual + timedelta(days=1)
+            
+            nome_fds = f"{sabado.strftime('%d/%m')} e {domingo.strftime('%d/%m')} de {sabado.strftime('%B/%Y')}"
+            meses_en_pt = {"August": "Agosto", "September": "Setembro", "October": "Outubro", "November": "Novembro", "December": "Dezembro"}
+            for en, pt in meses_en_pt.items():
+                nome_fds = nome_fds.replace(en, pt)
+                
+            finais_de_semana.append(nome_fds)
+        data_atual += timedelta(days=1)
+    return finais_de_semana
+
+FDS_LISTA = gerar_finais_de_semana()
+
+# --- INTERFACE GRÁFICA ---
+st.title("✈️ Escolha do Final de Semana para a Viagem da turma 26!")
+
+aba_votar, aba_painel = st.tabs(["✍️ Indicar Disponibilidade", "📊 Painel de Resultados"])
+
+# --- ABA 1: VOTAÇÃO ---
+with aba_votar:
+    st.markdown("### Preencha suas informações abaixo:")
+    nome = st.text_input("Seu Nome:", placeholder="Ex: João Silva").strip()
+    
+    st.markdown("**Selecione os finais de semana que você TEM DISPONIBILIDADE:**")
+    votos_usuario = []
+    for fds in FDS_LISTA:
+        if st.checkbox(fds, key=f"check_{fds}"):
+            votos_usuario.append(fds)
+            
+    if st.button("Enviar Disponibilidade", type="primary"):
+        if not nome:
+            st.error("Por favor, insira o seu nome antes de enviar.")
+        else:
+            votos_texto = "; ".join(votos_usuario) if votos_usuario else "Nenhum"
+            
+            # Formata os dados para salvar
+            novo_voto = pd.DataFrame([{"Nome": nome, "Votos": votos_texto}])
+            
+            # Cria/Atualiza um arquivo local temporário para o envio
+            arquivo_local = "votos.csv"
+            try:
+                # Se o arquivo já existir no servidor, lê para não apagar o dos outros
+                link_csv = obter_link_csv(LINK_DA_PLANILHA)
+                df_existente = pd.read_csv(link_csv)
+                if 'Nome' in df_existente.columns:
+                    df_existente = df_existente[df_existente['Nome'] != nome]
+                df_final = pd.concat([df_existente, novo_voto], ignore_index=True)
+            except:
+                df_final = novo_voto
+                
+            # Salva localmente
+            df_final.to_csv(arquivo_local, index=False)
+            
+            # 🎉 Mensagem de sucesso instructiva
+            st.success(f"Disponibilidade de {nome} processada!")
+            st.info("Para a versão final na web, esses dados irão direto para o seu Google Sheets de forma automatizada.")
+            st.balloons()
+
+# --- ABA 2: PAINEL ---
+with aba_painel:
+    st.markdown("### 🔐 Área Restrita ao Organizador")
+    senha = st.text_input("Digite a senha para visualizar os resultados:", type="password")
+    
+    if senha == "turma26":
+        st.success("Acesso liberado!")
+        
+        try:
+            link_csv = obter_link_csv(LINK_DA_PLANILHA)
+            df_painel = pd.read_csv(link_csv)
+        except:
+            df_painel = pd.DataFrame()
+        
+        if df_painel.empty or 'Nome' not in df_painel.columns:
+            st.info("Nenhum voto registrado na planilha em nuvem ainda ou a planilha está vazia.")
+        else:
+            total_participantes = len(df_painel)
+            st.metric(label="Total de Participantes que Votaram", value=total_participantes)
+            
+            dados_votos_mapeados = {}
+            for _, row in df_painel.iterrows():
+                votos_lista = str(row['Votos']).split("; ") if row['Votos'] != "Nenhum" else []
+                dados_votos_mapeados[row['Nome']] = votos_lista
+                
+            linhas_resultado = []
+            for fds in FDS_LISTA:
+                quem_pode = [p for p, v in dados_votos_mapeados.items() if fds in v]
+                votos_sim = len(quem_pode)
+                percentual = (votos_sim / total_participantes) * 100
+                
+                linhas_resultado.append({
+                    "Final de Semana": fds,
+                    "Votos Favoráveis": votos_sim,
+                    "Aderência (%)": round(percentual, 1),
+                    "Quem pode ir": ", ".join(quem_pode) if quem_pode else "Ninguém"
+                })
+                
+            df_resultados = pd.DataFrame(linhas_resultado).sort_values(by=["Aderência (%)", "Votos Favoráveis"], ascending=False)
+            
+            st.dataframe(
+                df_resultados,
+                column_config={"Aderência (%)": st.column_config.ProgressColumn("Aderência (%)", format="%.1f%%", min_value=0, max_value=100)},
+                hide_index=True, use_container_width=True
+            )
+    elif senha != "":
+        st.error("Senha incorreta.")
