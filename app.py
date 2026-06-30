@@ -1,20 +1,22 @@
 import streamlit as st
 import pandas as pd
+import os
 from datetime import datetime, timedelta
 
 # Configuração da página
 st.set_page_config(page_title="Organizador de Viagens", layout="wide", page_icon="✈️")
 
-# 🔗 LINK DA SUA PLANILHA DO GOOGLE
-LINK_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1hqECOshpTMK8rIZLqfose9tJmXZyWg-6EdKrDd76edY/edit?usp=sharing"
+# Nome do arquivo que guardará os votos permanentemente no servidor (Solução Estável)
+ARQUIVO_VOTOS = "banco_de_votos.csv"
 
-# Função para converter o link normal da planilha em um link de download de dados (CSV)
-def obter_link_csv(url):
-    if "edit?usp=sharing" in url:
-        return url.replace("edit?usp=sharing", "gviz/tq?tqx=out:csv")
-    elif "/edit" in url:
-        return url.split("/edit")[0] + "/gviz/tq?tqx=out:csv"
-    return url
+# Função para carregar os votos salvos no servidor
+def carregar_votos():
+    if os.path.exists(ARQUIVO_VOTOS):
+        try:
+            return pd.read_csv(ARQUIVO_VOTOS)
+        except:
+            return pd.DataFrame(columns=["Nome", "Votos"])
+    return pd.DataFrame(columns=["Nome", "Votos"])
 
 # 1. Gerar todos os finais de semana de Agosto a Dezembro de 2026
 @st.cache_data
@@ -23,23 +25,11 @@ def gerar_finais_de_semana():
     data_inicio = datetime(2026, 8, 1)
     data_fim = datetime(2026, 12, 31)
     
-    # 🚫 ADICIONE AQUI AS DATAS QUE VOCÊ QUER EXCLUIR
-    # Escreva exatamente o dia do sábado que deseja remover da lista
+    # 🚫 SUAS DATAS EXCLUÍDAS SOLICITADAS
     datas_para_excluir = [
-        "01/08",
-        "08/08",
-        "15/10",
-        "22/08",
-        "05/09",
-        "12/09",
-        "19/09",
-        "26/09",
-        "10/10",
-        "17/10",
-        "31/10",
-        "14/11",
-        "05/12",
-        "26/12"
+        "01/08", "08/08", "15/10", "22/08", "05/09", "12/09", 
+        "19/09", "26/09", "10/10", "17/10", "31/10", "14/11", 
+        "05/12", "26/12"
     ]
     
     data_atual = data_inicio
@@ -53,7 +43,7 @@ def gerar_finais_de_semana():
             for en, pt in meses_en_pt.items():
                 nome_fds = nome_fds.replace(en, pt)
                 
-            # 🔍 SÓ ADICIONA SE NÃO ESTIVER NA LISTA DE EXCLUSÃO
+            # 🔍 Só adiciona se não estiver na sua lista de exclusão
             if sabado.strftime('%d/%m') not in datas_para_excluir:
                 finais_de_semana.append(nome_fds)
         data_atual += timedelta(days=1)
@@ -64,10 +54,8 @@ FDS_LISTA = gerar_finais_de_semana()
 # --- INTERFACE GRÁFICA ---
 st.title("✈️ Escolha do Final de Semana para a Viagem da turma 26!")
 
-# 🖼️ CRIANDO COLUNAS PARA DIMINUIR E CENTRALIZAR A IMAGEM
-# O segredo está nos números: quanto maior o primeiro e o último número, menor fica a imagem no meio.
+# 🖼️ SUA IMAGEM CENTRALIZADA E AJUSTADA
 col_esquerda, col_centro, col_direita = st.columns([2, 1, 2])
-
 with col_centro:
     st.image(
         "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRE5_dUh7nVSUSHGxWGcJDU5vNBwvTVyb9vDtEogdBw50zA_5s9e-1HAhik&s=10", 
@@ -93,25 +81,31 @@ with aba_votar:
         else:
             votos_texto = "; ".join(votos_usuario) if votos_usuario else "Nenhum"
             
-            # 🚀 ENVIO AUTOMATIZADO PARA O GOOGLE FORMS
+            # --- SALVAMENTO LOCAL SEGURO (Borda contra erros de nuvem) ---
+            df_atual = carregar_votos()
+            if not df_atual.empty:
+                df_atual = df_atual[df_atual['Nome'].str.lower() != nome.lower()] # Evita duplicações
+            
+            novo_voto = pd.DataFrame([{"Nome": nome, "Votos": votos_texto}])
+            df_final = pd.concat([df_atual, novo_voto], ignore_index=True)
+            df_final.to_csv(ARQUIVO_VOTOS, index=False)
+            
+            # --- ENVIO PARALELO PARA O SEU GOOGLE FORMS ---
             import requests
-            
-            # SUBSTUIUA PELO URL DO SEU FORMULÁRIO (mude '/viewform' para '/formResponse')
-            url_form = "https://docs.google.com/forms/d/e/1FAIpQLSdOwb2mMIDCOdkxGcLBkmiIPh4UEBOOFGSqyobx7Cxip_6Whw/viewform?usp=pp_url&entry.611490973=teste_nome&entry.692886392=teste_votos"
-            
-            # SUBSTRITUA OS NÚMEROS PELOS SEUS IDS QUE VOCÊ COPIOU NO PASSO 2
+            url_form = "https://docs.google.com/forms/d/e/1FAIpQLSdOwb2mMIDCOdkxGcLBkmiIPh4UEBOOFGSqyobx7Cxip_6Whw/formResponse"
             dados_voto = {
-                "entry.611490973": nome,        # ID da pergunta Nome
-                "entry.692886392": votos_texto  # ID da pergunta Votos
+                "entry.611490973": nome,
+                "entry.692886392": votos_texto
             }
-            
             try:
-                # Envia o voto em segundo plano para o Google
-                requests.post(url_form, data=dados_voto)
-                st.success(f"Disponibilidade de {nome} registrada com sucesso na nuvem!")
-                st.balloons()
+                requests.post(url_form, data=dados_voto, timeout=5)
             except:
-                st.error("Erro de conexão ao enviar o voto. Tente novamente.")
+                pass # Se o Google falhar ou demorar, o sistema local garante o voto
+                
+            st.success(f"Disponibilidade de {nome} registrada com sucesso!")
+            st.balloons()
+            st.rerun()
+
 # --- ABA 2: PAINEL ---
 with aba_painel:
     st.markdown("### 🔐 Área Restrita ao Organizador")
@@ -120,17 +114,10 @@ with aba_painel:
     if senha == "turma26":
         st.success("Acesso liberado!")
         
-        try:
-            link_csv = obtener_link_csv(LINK_DA_PLANILHA)
-            # 🔥 Adiciona um comando que força o Google a ignorar o cache e mostrar o dado na hora
-            import time
-            link_sem_cache = f"{link_csv}&timestamp={int(time.time())}"
-            df_painel = pd.read_csv(link_sem_cache)
-        except Exception as e:
-            df_painel = pd.DataFrame()
+        df_painel = carregar_votos()
         
-        if df_painel.empty or 'Nome' not in df_painel.columns:
-            st.info("Nenhum voto registrado na planilha em nuvem ainda ou a planilha está vazia.")
+        if df_painel.empty:
+            st.info("Nenhum voto registrado até o momento.")
         else:
             total_participantes = len(df_painel)
             st.metric(label="Total de Participantes que Votaram", value=total_participantes)
@@ -149,16 +136,4 @@ with aba_painel:
                 linhas_resultado.append({
                     "Final de Semana": fds,
                     "Votos Favoráveis": votos_sim,
-                    "Aderência (%)": round(percentual, 1),
-                    "Quem pode ir": ", ".join(quem_pode) if quem_pode else "Ninguém"
-                })
-                
-            df_resultados = pd.DataFrame(linhas_resultado).sort_values(by=["Aderência (%)", "Votos Favoráveis"], ascending=False)
-            
-            st.dataframe(
-                df_resultados,
-                column_config={"Aderência (%)": st.column_config.ProgressColumn("Aderência (%)", format="%.1f%%", min_value=0, max_value=100)},
-                hide_index=True, use_container_width=True
-            )
-    elif senha != "":
-        st.error("Senha incorreta.")
+                    "Aderência (%)": round(percentual,
