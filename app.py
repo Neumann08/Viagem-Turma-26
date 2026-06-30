@@ -27,12 +27,17 @@ def gerar_finais_de_semana():
     # Escreva exatamente o dia do sábado que deseja remover da lista
     datas_para_excluir = [
         "08/08",
+        "15/10",
         "22/08",
         "05/09",
         "12/09",
+        "19/09",
         "26/09",
         "10/10",
-        "31/10"
+        "17/10",
+        "31/10",
+        "14/11",
+        "05/12",
         "26/12"
     ]
     
