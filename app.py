@@ -110,7 +110,7 @@ with aba_painel:
     st.markdown("### 🔐 Área Restrita ao Organizador")
     senha = st.text_input("Digite a senha para visualizar os resultados:", type="password")
     
-    if senha == "turma26":
+    if senha == "26":
         st.success("Acesso liberado!")
         
         df_painel = carregar_votos()
