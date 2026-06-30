@@ -81,7 +81,7 @@ with aba_votar:
         else:
             votos_texto = "; ".join(votos_usuario) if votos_usuario else "Nenhum"
             
-            # --- SALVAMENTO LOCAL SEGURO (Borda contra erros de nuvem) ---
+            # --- SALVAMENTO LOCAL SEGURO ---
             df_atual = carregar_votos()
             if not df_atual.empty:
                 df_atual = df_atual[df_atual['Nome'].str.lower() != nome.lower()] # Evita duplicações
@@ -97,15 +97,13 @@ with aba_votar:
                 "entry.611490973": nome,
                 "entry.692886392": votos_texto
             }
-           try:
+            try:
                 requests.post(url_form, data=dados_voto, timeout=5)
             except:
-                pass # Se o Google falhar, o sistema local garante o voto
+                pass # Se o Google falhar, o sistema local garante o voto no painel
                 
-            # Mostra o sucesso primeiro
             st.success(f"Disponibilidade de {nome} registrada com sucesso!")
             st.balloons()
-            st.rerun()
 
 # --- ABA 2: PAINEL ---
 with aba_painel:
@@ -117,46 +115,4 @@ with aba_painel:
         
         df_painel = carregar_votos()
         
-        if df_painel.empty:
-            st.info("Nenhum voto registrado até o momento.")
-        else:
-            total_participantes = len(df_painel)
-            st.metric(label="Total de Participantes que Votaram", value=total_participantes)
-            
-            dados_votos_mapeados = {}
-            for _, row in df_painel.iterrows():
-                votos_lista = str(row['Votos']).split("; ") if row['Votos'] != "Nenhum" else []
-                dados_votos_mapeados[row['Nome']] = votos_lista
-                
-            linhas_resultado = []
-            for fds in FDS_LISTA:
-                quem_pode = [p for p, v in dados_votos_mapeados.items() if fds in v]
-                votos_sim = len(quem_pode)
-                percentual = (votos_sim / total_participantes) * 100
-                
-                linhas_resultado.append({
-                    "Final de Semana": fds,
-                    "Votos Favoráveis": votos_sim,
-                    "Aderência (%)": round(percentual, 1),
-                    "Quem pode ir": ", ".join(quem_pode) if quem_pode else "Ninguém"
-                })
-                
-            df_resultados = pd.DataFrame(linhas_resultado).sort_values(by=["Aderência (%)", "Votos Favoráveis"], ascending=False)
-            
-            st.dataframe(
-                df_resultados,
-                column_config={"Aderência (%)": st.column_config.ProgressColumn("Aderência (%)", format="%.1f%%", min_value=0, max_value=100)},
-                hide_index=True, use_container_width=True
-            )
-            
-            # Botão para baixar relatório se quiser consolidar no Excel
-            st.markdown("---")
-            csv_data = df_painel.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Baixar Dados Consolidados (CSV)",
-                data=csv_data,
-                file_name="votacao_viagem_turma26.csv",
-                mime="text/csv"
-            )
-    elif senha != "":
-        st.error("Senha incorreta.")
+        if df_pain
