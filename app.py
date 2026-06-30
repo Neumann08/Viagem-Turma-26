@@ -136,4 +136,26 @@ with aba_painel:
                 linhas_resultado.append({
                     "Final de Semana": fds,
                     "Votos Favoráveis": votos_sim,
-                    "Aderência (%)": round(percentual,
+                    "Aderência (%)": round(percentual, 1),
+                    "Quem pode ir": ", ".join(quem_pode) if quem_pode else "Ninguém"
+                })
+                
+            df_resultados = pd.DataFrame(linhas_resultado).sort_values(by=["Aderência (%)", "Votos Favoráveis"], ascending=False)
+            
+            st.dataframe(
+                df_resultados,
+                column_config={"Aderência (%)": st.column_config.ProgressColumn("Aderência (%)", format="%.1f%%", min_value=0, max_value=100)},
+                hide_index=True, use_container_width=True
+            )
+            
+            # Botão para baixar relatório se quiser consolidar no Excel
+            st.markdown("---")
+            csv_data = df_painel.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Baixar Dados Consolidados (CSV)",
+                data=csv_data,
+                file_name="votacao_viagem_turma26.csv",
+                mime="text/csv"
+            )
+    elif senha != "":
+        st.error("Senha incorreta.")
