@@ -26,6 +26,7 @@ def gerar_finais_de_semana():
     # 🚫 ADICIONE AQUI AS DATAS QUE VOCÊ QUER EXCLUIR
     # Escreva exatamente o dia do sábado que deseja remover da lista
     datas_para_excluir = [
+        "01/08",
         "08/08",
         "15/10",
         "22/08",
@@ -124,9 +125,12 @@ with aba_painel:
         st.success("Acesso liberado!")
         
         try:
-            link_csv = obter_link_csv(LINK_DA_PLANILHA)
-            df_painel = pd.read_csv(link_csv)
-        except:
+            link_csv = obtener_link_csv(LINK_DA_PLANILHA)
+            # 🔥 Adiciona um comando que força o Google a ignorar o cache e mostrar o dado na hora
+            import time
+            link_sem_cache = f"{link_csv}&timestamp={int(time.time())}"
+            df_painel = pd.read_csv(link_sem_cache)
+        except Exception as e:
             df_painel = pd.DataFrame()
         
         if df_painel.empty or 'Nome' not in df_painel.columns:
