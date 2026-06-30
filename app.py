@@ -93,29 +93,25 @@ with aba_votar:
         else:
             votos_texto = "; ".join(votos_usuario) if votos_usuario else "Nenhum"
             
-            # Formata os dados para salvar
-            novo_voto = pd.DataFrame([{"Nome": nome, "Votos": votos_texto}])
+            # 🚀 ENVIO AUTOMATIZADO PARA O GOOGLE FORMS
+            import requests
             
-            # Cria/Atualiza um arquivo local temporário para o envio
-            arquivo_local = "votos.csv"
+            # SUBSTUIUA PELO URL DO SEU FORMULÁRIO (mude '/viewform' para '/formResponse')
+            url_form = "https://docs.google.com/forms/d/e/1FAIpQLSdOwb2mMIDCOdkxGcLBkmiIPh4UEBOOFGSqyobx7Cxip_6Whw/viewform?usp=pp_url&entry.611490973=teste_nome&entry.692886392=teste_votos"
+            
+            # SUBSTRITUA OS NÚMEROS PELOS SEUS IDS QUE VOCÊ COPIOU NO PASSO 2
+            dados_voto = {
+                "entry.611490973": nome,        # ID da pergunta Nome
+                "entry.692886392": votos_texto  # ID da pergunta Votos
+            }
+            
             try:
-                # Se o arquivo já existir no servidor, lê para não apagar o dos outros
-                link_csv = obter_link_csv(LINK_DA_PLANILHA)
-                df_existente = pd.read_csv(link_csv)
-                if 'Nome' in df_existente.columns:
-                    df_existente = df_existente[df_existente['Nome'] != nome]
-                df_final = pd.concat([df_existente, novo_voto], ignore_index=True)
+                # Envia o voto em segundo plano para o Google
+                requests.post(url_form, data=dados_voto)
+                st.success(f"Disponibilidade de {nome} registrada com sucesso na nuvem!")
+                st.balloons()
             except:
-                df_final = novo_voto
-                
-            # Salva localmente
-            df_final.to_csv(arquivo_local, index=False)
-            
-            # 🎉 Mensagem de sucesso instructiva
-            st.success(f"Disponibilidade de {nome} processada!")
-            st.info("Para a versão final na web, esses dados irão direto para o seu Google Sheets de forma automatizada.")
-            st.balloons()
-
+                st.error("Erro de conexão ao enviar o voto. Tente novamente.")
 # --- ABA 2: PAINEL ---
 with aba_painel:
     st.markdown("### 🔐 Área Restrita ao Organizador")
