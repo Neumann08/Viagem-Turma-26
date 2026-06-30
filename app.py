@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 # Configuração da página
 st.set_page_config(page_title="Organizador de Viagens", layout="wide", page_icon="✈️")
 
-# 🔗 INSERIRA AQUI O LINK DA SUA PLANILHA DO GOOGLE
+# 🔗 LINK DA SUA PLANILHA DO GOOGLE
 LINK_DA_PLANILHA = "https://docs.google.com/spreadsheets/d/1hqECOshpTMK8rIZLqfose9tJmXZyWg-6EdKrDd76edY/edit?usp=sharing"
 
 # Função para converter o link normal da planilha em um link de download de dados (CSV)
@@ -23,6 +23,18 @@ def gerar_finais_de_semana():
     data_inicio = datetime(2026, 8, 1)
     data_fim = datetime(2026, 12, 31)
     
+    # 🚫 ADICIONE AQUI AS DATAS QUE VOCÊ QUER EXCLUIR
+    # Escreva exatamente o dia do sábado que deseja remover da lista
+    datas_para_excluir = [
+        "08/08",
+        "22/08",
+        "05/09",
+        "12/09",
+        "26/09",
+        "10/10",
+        "26/12"
+    ]
+    
     data_atual = data_inicio
     while data_atual <= data_fim:
         if data_atual.weekday() == 5:  # Sábado
@@ -34,7 +46,9 @@ def gerar_finais_de_semana():
             for en, pt in meses_en_pt.items():
                 nome_fds = nome_fds.replace(en, pt)
                 
-            finais_de_semana.append(nome_fds)
+            # 🔍 SÓ ADICIONA SE NÃO ESTIVER NA LISTA DE EXCLUSÃO
+            if sabado.strftime('%d/%m') not in datas_para_excluir:
+                finais_de_semana.append(nome_fds)
         data_atual += timedelta(days=1)
     return finais_de_semana
 
@@ -43,12 +57,22 @@ FDS_LISTA = gerar_finais_de_semana()
 # --- INTERFACE GRÁFICA ---
 st.title("✈️ Escolha do Final de Semana para a Viagem da turma 26!")
 
+# 🖼️ CRIANDO COLUNAS PARA DIMINUIR E CENTRALIZAR A IMAGEM
+# O segredo está nos números: quanto maior o primeiro e o último número, menor fica a imagem no meio.
+col_esquerda, col_centro, col_direita = st.columns([2, 1, 2])
+
+with col_centro:
+    st.image(
+        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRE5_dUh7nVSUSHGxWGcJDU5vNBwvTVyb9vDtEogdBw50zA_5s9e-1HAhik&s=10", 
+        caption="Rumo à Viagem da Turma 26! 🚀"
+    )
+
 aba_votar, aba_painel = st.tabs(["✍️ Indicar Disponibilidade", "📊 Painel de Resultados"])
 
 # --- ABA 1: VOTAÇÃO ---
 with aba_votar:
-    st.markdown("### Preencha suas informações abaixo:")
-    nome = st.text_input("Seu Nome:", placeholder="Ex: João Silva").strip()
+    st.markdown("### Informe o nome e sobrenome do (a) aluno (a) abaixo:")
+    nome = st.text_input("Nome do (a) aluno (a):", placeholder="Ex: João Silva").strip()
     
     st.markdown("**Selecione os finais de semana que você TEM DISPONIBILIDADE:**")
     votos_usuario = []
