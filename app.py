@@ -97,11 +97,12 @@ with aba_votar:
                 "entry.611490973": nome,
                 "entry.692886392": votos_texto
             }
-            try:
+           try:
                 requests.post(url_form, data=dados_voto, timeout=5)
             except:
-                pass # Se o Google falhar ou demorar, o sistema local garante o voto
+                pass # Se o Google falhar, o sistema local garante o voto
                 
+            # Mostra o sucesso primeiro
             st.success(f"Disponibilidade de {nome} registrada com sucesso!")
             st.balloons()
             st.rerun()
